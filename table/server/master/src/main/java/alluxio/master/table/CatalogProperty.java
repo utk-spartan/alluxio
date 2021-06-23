@@ -38,4 +38,8 @@ public class CatalogProperty extends BaseProperty {
               + "overload the UDB, and if set too low, syncing a database with many tables may "
               + "take a long time.",
           Integer.toString(DEFAULT_DB_SYNC_THREADS));
+  public static final CatalogProperty DB_CONFIG_UFS_BYPASS_ENABLED =
+      new CatalogProperty("catalog.db.config.ufs.bypass.enabled",
+          "Enable bypass for UFS locations for all tables in the UDB",
+          "false");
 }
