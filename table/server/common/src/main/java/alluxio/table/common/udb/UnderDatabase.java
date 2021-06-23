@@ -38,9 +38,10 @@ public interface UnderDatabase {
 
   /**
    * @param tableName the table name
+   * @param ufsBypassEnabled whether to enable ufs bypass for all tables
    * @return the {@link UdbTable} for the specified table name
    */
-  UdbTable getTable(String tableName) throws IOException;
+  UdbTable getTable(String tableName, Boolean ufsBypassEnabled) throws IOException;
 
   /**
    * @return the {@link UdbContext}
