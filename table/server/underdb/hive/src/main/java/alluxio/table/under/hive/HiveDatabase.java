@@ -142,7 +142,8 @@ public class HiveDatabase implements UnderDatabase {
     }
   }
 
-  private PathTranslator mountAlluxioPaths(Table table, List<Partition> partitions)
+  private PathTranslator mountAlluxioPaths(Table table, List<Partition> partitions,
+                                           Boolean ufsBypassEnabled)
       throws IOException {
     String tableName = table.getTableName();
     AlluxioURI ufsUri;
@@ -151,6 +152,10 @@ public class HiveDatabase implements UnderDatabase {
 
     try {
       PathTranslator pathTranslator = new PathTranslator();
+      if (ufsBypassEnabled) {
+        pathTranslator.addMapping(hiveUfsUri, hiveUfsUri);
+        return pathTranslator;
+      }
       ufsUri = new AlluxioURI(table.getSd().getLocation());
       pathTranslator.addMapping(
           UdbUtils.mountAlluxioPath(tableName,
@@ -200,7 +205,7 @@ public class HiveDatabase implements UnderDatabase {
   }
 
   @Override
-  public UdbTable getTable(String tableName) throws IOException {
+  public UdbTable getTable(String tableName, Boolean ufsBypassEnabled) throws IOException {
     try {
       Table table;
       List<Partition> partitions;
@@ -240,7 +245,7 @@ public class HiveDatabase implements UnderDatabase {
         }
       }
 
-      PathTranslator pathTranslator = mountAlluxioPaths(table, partitions);
+      PathTranslator pathTranslator = mountAlluxioPaths(table, partitions, ufsBypassEnabled);
       List<ColumnStatisticsInfo> colStats =
           columnStats.stream().map(HiveUtils::toProto).collect(Collectors.toList());
       // construct table layout
