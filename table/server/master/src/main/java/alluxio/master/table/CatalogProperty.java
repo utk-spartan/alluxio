@@ -41,4 +41,9 @@ public class CatalogProperty extends BaseProperty {
   public static final CatalogProperty DB_CONFIG_FILE =
       new CatalogProperty("catalog.db.config.file",
           "The config file for the UDB.", "<catalog.db.config.file>");
+
+  public static final CatalogProperty DB_CONFIG_UFS_BYPASS_ENABLED =
+      new CatalogProperty("catalog.db.config.ufs.bypass.enabled",
+          "Enable bypass for UFS locations for all tables in the UDB",
+          "false");
 }
