@@ -238,7 +238,7 @@ public class GlueDatabase implements UnderDatabase {
 
   @VisibleForTesting
   private PathTranslator mountAlluxioPaths(Table table, List<Partition> partitions,
-      UdbBypassSpec bypassSpec)
+      UdbBypassSpec bypassSpec, Boolean isUfsBypassEnabled)
       throws IOException {
     String tableName = table.getName();
     AlluxioURI ufsUri;
@@ -247,7 +247,7 @@ public class GlueDatabase implements UnderDatabase {
 
     try {
       PathTranslator pathTranslator = new PathTranslator();
-      if (bypassSpec.hasFullTable(tableName)) {
+      if (isUfsBypassEnabled || bypassSpec.hasFullTable(tableName)) {
         pathTranslator.addMapping(glueUfsUri, glueUfsUri);
         return pathTranslator;
       }
@@ -341,7 +341,7 @@ public class GlueDatabase implements UnderDatabase {
   }
 
   @Override
-  public UdbTable getTable(String tableName, UdbBypassSpec bypassSpec) throws IOException {
+  public UdbTable getTable(String tableName, UdbBypassSpec bypassSpec, Boolean isUfsBypassEnabled) throws IOException {
     Table table;
     List<Partition> partitions;
     try {
@@ -352,7 +352,7 @@ public class GlueDatabase implements UnderDatabase {
       table = getClient().getTable(tableRequest).getTable();
 
       partitions = batchGetPartitions(getClient(), tableName);
-      PathTranslator pathTranslator = mountAlluxioPaths(table, partitions, bypassSpec);
+      PathTranslator pathTranslator = mountAlluxioPaths(table, partitions, bypassSpec, isUfsBypassEnabled);
 
       List<Column> partitionColumns;
       if (table.getPartitionKeys() == null) {

@@ -112,7 +112,7 @@ public class TestDatabase implements UnderDatabase {
   }
 
   @Override
-  public UdbTable getTable(String tableName, UdbBypassSpec bypassSpec) throws IOException {
+  public UdbTable getTable(String tableName, UdbBypassSpec bypassSpec, Boolean bypass) throws IOException {
     checkDbName();
     if (!mUdbTables.containsKey(tableName)) {
       throw new NotFoundException("Table " + tableName + " does not exist.");
