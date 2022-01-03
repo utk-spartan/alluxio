@@ -158,7 +158,7 @@ public class HiveDatabase implements UnderDatabase {
   }
 
   private PathTranslator mountAlluxioPaths(Table table, List<Partition> partitions,
-      UdbBypassSpec bypassSpec)
+      UdbBypassSpec bypassSpec, Boolean isUfsBypassEnabled)
       throws IOException {
     String tableName = table.getTableName();
     AlluxioURI ufsUri;
@@ -167,7 +167,7 @@ public class HiveDatabase implements UnderDatabase {
 
     try {
       PathTranslator pathTranslator = new PathTranslator();
-      if (bypassSpec.hasFullTable(tableName)) {
+      if (isUfsBypassEnabled || bypassSpec.hasFullTable(tableName)) {
         pathTranslator.addMapping(hiveUfsUri, hiveUfsUri);
 
         ufsUri = new AlluxioURI(hiveUfsUri);
@@ -240,7 +240,7 @@ public class HiveDatabase implements UnderDatabase {
   }
 
   @Override
-  public UdbTable getTable(String tableName, UdbBypassSpec bypassSpec) throws IOException {
+  public UdbTable getTable(String tableName, UdbBypassSpec bypassSpec, Boolean isUfsBypassEnabled) throws IOException {
     try {
       Table table;
       List<Partition> partitions;
@@ -280,7 +280,7 @@ public class HiveDatabase implements UnderDatabase {
         }
       }
 
-      PathTranslator pathTranslator = mountAlluxioPaths(table, partitions, bypassSpec);
+      PathTranslator pathTranslator = mountAlluxioPaths(table, partitions, bypassSpec, isUfsBypassEnabled);
       List<ColumnStatisticsInfo> colStats =
           columnStats.stream().map(HiveUtils::toProto).collect(Collectors.toList());
       // construct table layout
