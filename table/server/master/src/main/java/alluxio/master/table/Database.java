@@ -71,6 +71,7 @@ public class Database implements Journaled {
   private final UnderDatabase mUdb;
   private final CatalogConfiguration mConfig;
   private final Set<String> mIgnoreTables;
+  private final Boolean mUfsBypassEnabled;
   private final String mConfigPath;
   private DbConfig mDbConfig;
   private final long mUdbSyncTimeoutMs =
@@ -88,6 +89,8 @@ public class Database implements Journaled {
     mConfig = config;
     mIgnoreTables = Sets.newHashSet(
         ConfigurationUtils.parseAsList(mConfig.get(CatalogProperty.DB_IGNORE_TABLES), ","));
+    mUfsBypassEnabled = Boolean.parseBoolean(
+            mConfig.get(CatalogProperty.DB_CONFIG_UFS_BYPASS_ENABLED));
     mConfigPath = mConfig.get(CatalogProperty.DB_CONFIG_FILE);
     mDbConfig = DbConfig.empty();
   }
@@ -250,7 +253,7 @@ public class Database implements Journaled {
         // Save all exceptions
         try {
           Table previousTable = mTables.get(tableName);
-          UdbTable udbTable = mUdb.getTable(tableName, mDbConfig.getUdbBypassSpec());
+          UdbTable udbTable = mUdb.getTable(tableName, mDbConfig.getUdbBypassSpec(), mUfsBypassEnabled);
           Table newTable = Table.create(thisDb, udbTable, previousTable);
 
           if (newTable != null) {
