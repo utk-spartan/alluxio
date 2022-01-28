@@ -154,6 +154,14 @@ public class HiveDatabase implements UnderDatabase {
       PathTranslator pathTranslator = new PathTranslator();
       if (ufsBypassEnabled) {
         pathTranslator.addMapping(hiveUfsUri, hiveUfsUri);
+        if (mConfiguration.getBoolean(Property.ALLOW_DIFF_PART_LOC_PREFIX)) {
+          for (Partition part : partitions) {
+            if (part.getSd() != null && part.getSd().getLocation() != null) {
+              String partUfsUri = part.getSd().getLocation();
+              pathTranslator.addMapping(partUfsUri, partUfsUri);
+            }
+          }
+        }
         return pathTranslator;
       }
       ufsUri = new AlluxioURI(table.getSd().getLocation());
