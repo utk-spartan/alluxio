@@ -9,7 +9,7 @@
  * See the NOTICE file distributed with this work for information regarding copyright ownership.
  */
 
-package alluxio.worker.grpc;
+package alluxio.wire;
 
 import alluxio.proto.dataserver.Protocol;
 import alluxio.util.IdUtils;
@@ -37,21 +37,33 @@ public final class BlockReadRequest {
    *
    * @param request the block read request
    */
-  BlockReadRequest(alluxio.grpc.ReadRequest request) {
-    mId = request.getBlockId();
-    mStart = request.getOffset();
-    mEnd = request.getOffset() + request.getLength();
-    mChunkSize = request.getChunkSize();
-    mSessionId = IdUtils.createSessionId();
+  public BlockReadRequest(alluxio.grpc.ReadRequest request) {
+    this(request.getBlockId(), request.getOffset(), request.getOffset() + request.getLength(),
+        request.getChunkSize(), request.getPromote(), request.getPositionShort(),
+        request.hasOpenUfsBlockOptions() ? request.getOpenUfsBlockOptions() : null);
+  }
 
-    if (request.hasOpenUfsBlockOptions()) {
-      mOpenUfsBlockOptions = request.getOpenUfsBlockOptions();
-    } else {
-      mOpenUfsBlockOptions = null;
-    }
-    mPromote = request.getPromote();
-    mPositionShort = request.getPositionShort();
-    // Note that we do not need to seek to offset since the block worker is created at the offset.
+  /**
+   * Creates an instance of {@link BlockReadRequest}.
+   *
+   * @param id block id
+   * @param start start offset of this request
+   * @param end start offset of this request
+   * @param chunkSize chunk size in bytes
+   * @param promote whether to promote the block to top tier
+   * @param positionShort whether this is a short read
+   * @param openUfsBlockOptions options to read file from UFS
+   */
+  public BlockReadRequest(long id, long start, long end, long chunkSize, boolean promote,
+      boolean positionShort, Protocol.OpenUfsBlockOptions openUfsBlockOptions) {
+    mId = id;
+    mStart = start;
+    mEnd = end;
+    mChunkSize = chunkSize;
+    mSessionId = IdUtils.createSessionId();
+    mOpenUfsBlockOptions = openUfsBlockOptions;
+    mPromote = promote;
+    mPositionShort = positionShort;
   }
 
   /**

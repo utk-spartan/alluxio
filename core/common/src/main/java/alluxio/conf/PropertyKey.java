@@ -1776,7 +1776,7 @@ public final class PropertyKey implements Comparable<PropertyKey> {
           .build();
   public static final PropertyKey MASTER_METASTORE =
       new Builder(Name.MASTER_METASTORE)
-          .setDefaultValue("HEAP")
+          .setDefaultValue("ROCKS")
           .setDescription("The type of metastore to use, either HEAP or ROCKS. The heap metastore "
               + "keeps all metadata on-heap, while the rocks metastore stores some metadata on "
               + "heap and some metadata on disk. The rocks metastore has the advantage of being "
@@ -1821,9 +1821,11 @@ public final class PropertyKey implements Comparable<PropertyKey> {
           .setConsistencyCheckLevel(ConsistencyCheckLevel.ENFORCE)
           .setScope(Scope.MASTER)
           .build();
+  // 350 bytes per inode cache key and * 2 for the existence of edge cache and some leeway
   public static final PropertyKey MASTER_METASTORE_INODE_CACHE_MAX_SIZE =
       new Builder(Name.MASTER_METASTORE_INODE_CACHE_MAX_SIZE)
-          .setDefaultValue("10000000")
+          .setDefaultValue(Math.min(Integer.MAX_VALUE / 2,
+              Runtime.getRuntime().maxMemory() / 350 / 2))
           .setDescription("The number of inodes to cache on-heap. "
               + "This only applies to off-heap metastores, e.g. ROCKS. Set this to 0 to disable "
               + "the on-heap inode cache")
@@ -1950,6 +1952,18 @@ public final class PropertyKey implements Comparable<PropertyKey> {
               + "This is added to prevent frequently leadership transition "
               + "during heavy journal catchup stage. "
               + "Catchup is only implemented in ufs journal with Zookeeper.")
+          .setConsistencyCheckLevel(ConsistencyCheckLevel.WARN)
+          .setScope(Scope.MASTER)
+          .build();
+  public static final PropertyKey MASTER_JOURNAL_EXIT_ON_DEMOTION =
+      new Builder(Name.MASTER_JOURNAL_EXIT_ON_DEMOTION)
+          .setDefaultValue(false)
+          .setDescription("(Experimental) When this flag is set to true, the master process may "
+              + "start as the primary or secondary in a quorum, but at any point in time after "
+              + "becoming a primary it is demoted to secondary, the process will shut down. This "
+              + "leaves the responsibility of restarting the master to re-join the quorum (e.g. in"
+              + " case of a journal failure on a particular node) to an external entity such as "
+              + "kubernetes or systemd.")
           .setConsistencyCheckLevel(ConsistencyCheckLevel.WARN)
           .setScope(Scope.MASTER)
           .build();
@@ -2702,6 +2716,38 @@ public final class PropertyKey implements Comparable<PropertyKey> {
           .setConsistencyCheckLevel(ConsistencyCheckLevel.WARN)
           .setScope(Scope.WORKER)
           .build();
+  public static final PropertyKey WORKER_FUSE_ENABLED =
+      new Builder(Name.WORKER_FUSE_ENABLED)
+          .setDefaultValue(false)
+          .setDescription("If true, launch worker embedded Fuse application.")
+          .setConsistencyCheckLevel(ConsistencyCheckLevel.WARN)
+          .setScope(Scope.WORKER)
+          .build();
+  public static final PropertyKey WORKER_FUSE_MOUNT_ALLUXIO_PATH =
+      new Builder(Name.WORKER_FUSE_MOUNT_ALLUXIO_PATH)
+          .setDefaultValue("/")
+          .setDescription(String.format("The Alluxio path to mount to the given "
+                  + "Fuse mount point configured by %s in this worker.",
+              Name.WORKER_FUSE_MOUNT_POINT))
+          .setConsistencyCheckLevel(ConsistencyCheckLevel.WARN)
+          .setScope(Scope.WORKER)
+          .build();
+  public static final PropertyKey WORKER_FUSE_MOUNT_OPTIONS =
+      new Builder(Name.WORKER_FUSE_MOUNT_OPTIONS)
+          .setDescription("The platform specific Fuse mount options "
+              + "to mount the given Fuse mount point. "
+              + "If multiple mount options are provided, separate them with comma.")
+          .setConsistencyCheckLevel(ConsistencyCheckLevel.WARN)
+          .setScope(Scope.WORKER)
+          .build();
+  public static final PropertyKey WORKER_FUSE_MOUNT_POINT =
+      new Builder(Name.WORKER_FUSE_MOUNT_POINT)
+          .setDescription("The absolute local filesystem path that this worker will "
+              + "mount Alluxio path to. If the value is not set, no Fuse application"
+              + "will be mounted in this worker.")
+          .setConsistencyCheckLevel(ConsistencyCheckLevel.WARN)
+          .setScope(Scope.WORKER)
+          .build();
   public static final PropertyKey WORKER_MANAGEMENT_BACKOFF_STRATEGY =
       new Builder(Name.WORKER_MANAGEMENT_BACKOFF_STRATEGY)
           .setDefaultValue("ANY")
@@ -2798,13 +2844,6 @@ public final class PropertyKey implements Comparable<PropertyKey> {
           .setDescription("Max percentage of each tier that could be used for promotions. "
               + "Promotions will be stopped to a tier once its used space go over this value. "
               + "(0 means never promote, and, 100 means always promote.")
-          .setConsistencyCheckLevel(ConsistencyCheckLevel.WARN)
-          .setScope(Scope.WORKER)
-          .build();
-  public static final PropertyKey WORKER_FILE_BUFFER_SIZE =
-      new Builder(Name.WORKER_FILE_BUFFER_SIZE)
-          .setDefaultValue("1MB")
-          .setDescription("The buffer size for worker to write data into the tiered storage.")
           .setConsistencyCheckLevel(ConsistencyCheckLevel.WARN)
           .setScope(Scope.WORKER)
           .build();
@@ -3547,6 +3586,7 @@ public final class PropertyKey implements Comparable<PropertyKey> {
               + "worker.")
           .setConsistencyCheckLevel(ConsistencyCheckLevel.WARN)
           .setScope(Scope.CLIENT)
+          .setIsHidden(true)
           .build();
   public static final PropertyKey USER_CONF_SYNC_INTERVAL =
       new Builder(Name.USER_CONF_SYNC_INTERVAL)
@@ -3613,12 +3653,12 @@ public final class PropertyKey implements Comparable<PropertyKey> {
       new Builder(Name.USER_BLOCK_READ_RETRY_MAX_DURATION)
           .setDefaultValue("2min")
           .build();
-  // TODO(cc): remove this since configuration propagation is always enabled?
   public static final PropertyKey USER_CONF_CLUSTER_DEFAULT_ENABLED =
       new Builder(Name.USER_CONF_CLUSTER_DEFAULT_ENABLED)
           .setDefaultValue(true)
           .setDescription("When this property is true, an Alluxio client will load the default "
-              + "values of configuration properties set by Alluxio master.")
+              + "values of cluster-wide configuration and path-specific configuration set by "
+              + "Alluxio master.")
           .setScope(Scope.CLIENT)
           .build();
   public static final PropertyKey USER_DATE_FORMAT_PATTERN =
@@ -3844,6 +3884,14 @@ public final class PropertyKey implements Comparable<PropertyKey> {
       new Builder(Name.USER_CLIENT_CACHE_EVICTOR_LFU_LOGBASE)
           .setDefaultValue(2.0)
           .setDescription("The log base for client cache LFU evictor bucket index.")
+          .setConsistencyCheckLevel(ConsistencyCheckLevel.WARN)
+          .setScope(Scope.CLIENT)
+          .build();
+  public static final PropertyKey USER_CLIENT_CACHE_EVICTOR_NONDETERMINISTIC_ENABLED =
+      new Builder(Name.USER_CLIENT_CACHE_EVICTOR_NONDETERMINISTIC_ENABLED).setDefaultValue(false)
+          .setDescription(
+              "If this is enabled, the evictor picks uniformly from the worst k elements."
+                  + "Currently only LRU is supported.")
           .setConsistencyCheckLevel(ConsistencyCheckLevel.WARN)
           .setScope(Scope.CLIENT)
           .build();
@@ -5276,6 +5324,8 @@ public final class PropertyKey implements Comparable<PropertyKey> {
         "alluxio.master.lock.pool.concurrency.level";
     public static final String MASTER_JOURNAL_CATCHUP_PROTECT_ENABLED =
         "alluxio.master.journal.catchup.protect.enabled";
+    public static final String MASTER_JOURNAL_EXIT_ON_DEMOTION =
+        "alluxio.master.journal.exit.on.demotion";
     public static final String MASTER_JOURNAL_FLUSH_BATCH_TIME_MS =
         "alluxio.master.journal.flush.batch.time";
     public static final String MASTER_JOURNAL_FLUSH_TIMEOUT_MS =
@@ -5506,6 +5556,14 @@ public final class PropertyKey implements Comparable<PropertyKey> {
         "alluxio.worker.block.annotator.lrfu.attenuation.factor";
     public static final String WORKER_BLOCK_ANNOTATOR_LRFU_STEP_FACTOR =
         "alluxio.worker.block.annotator.lrfu.step.factor";
+    public static final String WORKER_FUSE_ENABLED =
+        "alluxio.worker.fuse.enabled";
+    public static final String WORKER_FUSE_MOUNT_ALLUXIO_PATH =
+        "alluxio.worker.fuse.mount.alluxio.path";
+    public static final String WORKER_FUSE_MOUNT_OPTIONS =
+        "alluxio.worker.fuse.mount.options";
+    public static final String WORKER_FUSE_MOUNT_POINT =
+        "alluxio.worker.fuse.mount.point";
     public static final String WORKER_MANAGEMENT_TIER_ALIGN_RESERVED_BYTES =
         "alluxio.worker.management.tier.align.reserved.bytes";
     public static final String WORKER_MANAGEMENT_BACKOFF_STRATEGY =
@@ -5528,7 +5586,6 @@ public final class PropertyKey implements Comparable<PropertyKey> {
         "alluxio.worker.management.tier.promote.range";
     public static final String WORKER_MANAGEMENT_TIER_PROMOTE_QUOTA_PERCENT =
         "alluxio.worker.management.tier.promote.quota.percent";
-    public static final String WORKER_FILE_BUFFER_SIZE = "alluxio.worker.file.buffer.size";
     public static final String WORKER_FREE_SPACE_TIMEOUT = "alluxio.worker.free.space.timeout";
     public static final String WORKER_HOSTNAME = "alluxio.worker.hostname";
     public static final String WORKER_KEYTAB_FILE = "alluxio.worker.keytab.file";
@@ -5683,6 +5740,8 @@ public final class PropertyKey implements Comparable<PropertyKey> {
         "alluxio.user.client.cache.evictor.class";
     public static final String USER_CLIENT_CACHE_EVICTOR_LFU_LOGBASE =
         "alluxio.user.client.cache.evictor.lfu.logbase";
+    public static final String USER_CLIENT_CACHE_EVICTOR_NONDETERMINISTIC_ENABLED =
+        "alluxio.user.client.cache.evictor.nondeterministic.enabled";
     public static final String USER_CLIENT_CACHE_DIR =
         "alluxio.user.client.cache.dir";
     public static final String USER_CLIENT_CACHE_LOCAL_STORE_FILE_BUCKETS =
