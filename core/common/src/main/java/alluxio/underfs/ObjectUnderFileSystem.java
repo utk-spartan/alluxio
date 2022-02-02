@@ -38,7 +38,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -947,11 +946,8 @@ public abstract class ObjectUnderFileSystem extends BaseUnderFileSystem {
     if (objs != null && !isRoot(dir)
         && ((objs.getObjectStatuses() != null && objs.getObjectStatuses().length > 0)
         || (objs.getCommonPrefixes() != null && objs.getCommonPrefixes().length > 0))) {
-      // Do not recreate the breadcrumb if it already exists
-      String folderName = convertToFolderName(dir);
-      if (!mUfsConf.isReadOnly() && mBreadcrumbsEnabled
-          && Arrays.stream(objs.getObjectStatuses()).noneMatch(
-              x -> x.mContentLength == 0 && x.getName().equals(folderName))) {
+      // If the breadcrumb exists, this is a no-op
+      if (!mUfsConf.isReadOnly() && mBreadcrumbsEnabled) {
         mkdirsInternal(dir);
       }
       return objs;
@@ -1056,6 +1052,11 @@ public abstract class ObjectUnderFileSystem extends BaseUnderFileSystem {
           int childNameIndex = child.lastIndexOf(PATH_SEPARATOR);
           child = childNameIndex != -1 ? child.substring(0, childNameIndex) : child;
           if (!child.isEmpty() && !children.containsKey(child)) {
+            // This directory has not been created through Alluxio.
+            if (!mUfsConf.isReadOnly()
+                && mUfsConf.getBoolean(PropertyKey.UNDERFS_OBJECT_STORE_BREADCRUMBS_ENABLED)) {
+              mkdirsInternal(commonPrefix);
+            }
             // If both a file and a directory existed with the same name, the path will be
             // treated as a directory
             ObjectPermissions permissions = getPermissions();
