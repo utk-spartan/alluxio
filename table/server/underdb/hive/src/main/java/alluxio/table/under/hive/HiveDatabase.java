@@ -169,6 +169,22 @@ public class HiveDatabase implements UnderDatabase {
       PathTranslator pathTranslator = new PathTranslator();
       if (bypassSpec.hasFullTable(tableName)) {
         pathTranslator.addMapping(hiveUfsUri, hiveUfsUri);
+
+        ufsUri = new AlluxioURI(hiveUfsUri);
+        for (Partition part : partitions) {
+          if (
+                  mConfiguration.getBoolean(Property.ALLOW_DIFF_PART_LOC_PREFIX)
+                          && part.getSd() != null
+                          && part.getSd().getLocation() != null
+          ) {
+            AlluxioURI partitionUri;
+            partitionUri = new AlluxioURI(part.getSd().getLocation());
+            if (!ufsUri.isAncestorOf(partitionUri)) {
+              pathTranslator.addMapping(part.getSd().getLocation(), part.getSd().getLocation());
+            }
+          }
+        }
+
         return pathTranslator;
       }
       ufsUri = new AlluxioURI(table.getSd().getLocation());
@@ -197,7 +213,7 @@ public class HiveDatabase implements UnderDatabase {
                 part.getValues().toString());
           }
           if (bypassSpec.hasPartition(tableName, partName)) {
-            pathTranslator.addMapping(partitionUri.getPath(), partitionUri.getPath());
+            pathTranslator.addMapping(hiveUfsUri, hiveUfsUri);
             continue;
           }
           alluxioUri = new AlluxioURI(PathUtils.concatPath(
